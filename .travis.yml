@@ -1,9 +1,16 @@
 language: python
 
+addons:
+  apt:
+    sources:
+      - llvm-toolchain-trusty-3.8
+    packages:
+      - llvm-3.8
+
 python: "3.5"
 
 install:
-    - "pip install -r requirements.txt"
-    - "pip install -r dev-requirements.txt"
+  - "pip install -r requirements.txt"
+  - "pip install -r dev-requirements.txt"
 
 script: pytest
