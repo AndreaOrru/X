@@ -10,6 +10,7 @@ addons:
         keyurl: 'http://apt.llvm.org/llvm-snapshot.gpg.key'
     packages:
       - llvm-3.8
+      - llvm-3.8-dev
 
 python: '3.5'
 
