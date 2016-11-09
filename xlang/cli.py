@@ -25,6 +25,6 @@ def main():
     # Compile the code:
     code_generator = CodeGenerator()
     code_generator.visit(tree)
-    print(code_generator.module)
+    print(code_generator.code)
 
     # TODO: generate binary.

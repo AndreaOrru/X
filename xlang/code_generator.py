@@ -10,122 +10,137 @@ class SymbolTable:
         self._symbols = [dict()]
 
     def push_frame(self, symbols=None):
-        symbols = dict() if symbols is None else symbols
-        self._symbols.append(symbols)
+        self._symbols.append(symbols or dict())
 
     def pop_frame(self):
         self._symbols.pop()
 
-    def resolve(self, ide):
+    def resolve(self, name):
         for frame in reversed(self._symbols):
             try:
-                return frame[ide]
+                return frame[name]
             except KeyError:
                 pass
-        raise IndexError
+        raise KeyError
 
-    def bind(self, ide, ptr):
-        self._symbols[-1][ide] = ptr
+    def bind(self, name, pointer):
+        self._symbols[-1][name] = pointer
 
 
 class CodeGenerator(XVisitor):
+    types = {
+        'Void': ir.VoidType(),
+        'Int':  ir.IntType(32),
+    }
+
     def __init__(self):
-        self.types = {
-            'Void': ir.VoidType(),
-            'Int':  ir.IntType(32),
-        }
-        self.module = ir.Module()
-        self.symbols = SymbolTable()
-        self.func = None
-        self.builder = None
+        self._module = ir.Module()
+        self._symbols = SymbolTable()
+        self._func = None     # Current function.
+        self._builder = None  # LLVM IR builder.
 
-    def new_var(self, typ, ide, val=None):
-        ptr = self.builder.alloca(typ, name=ide)
-        self.symbols.bind(ide, ptr)
-        if val is not None:
-            self.builder.store(val, ptr)
+    @property
+    def code(self):
+        return str(self._module)
 
-    def new_func(self, typ, ide):
-        self.func = ir.Function(self.module, typ, name=ide)
-        self.symbols.bind(ide, self.func)
+    def _create_var(self, typ, name, value=None):
+        pointer = self._builder.alloca(typ, name=name)
+        self._symbols.bind(name, pointer)
+        if value is not None:
+            self._builder.store(value, pointer)
 
-    def new_block(self):
-        block = self.func.append_basic_block(name='.entry')
-        self.builder = ir.IRBuilder(block)
+    def _create_func(self, typ, name):
+        self._func = ir.Function(self._module, typ, name=name)
+        self._symbols.bind(name, self._func)
+
+    def _create_block(self):
+        block = self._func.append_basic_block(name='.entry')
+        self._builder = ir.IRBuilder(block)
 
     def visitVarDecl(self, ctx):
+        # ID ':' typ ('=' expr)?
         typ = ctx.typ().getText()
-        ide = ctx.ID().getText()
-        self.new_var(self.types[typ], ide)
+        name = ctx.ID().getText()
+        self._create_var(self.types[typ], name)
         if ctx.expr():
             self.visitAssign(ctx)
 
     def visitFuncDecl(self, ctx):
-        ide = ctx.ID().getText()
+        # ID '(' params? ')' ('->' typ)? block
+        name = ctx.ID().getText()
         try:
             ret_typ = ctx.typ().getText()
         except AttributeError:
-            ret_typ = 'Void'
+            ret_typ = 'Void'    # No type specified, assume Void.
 
         try:
             params = ctx.params().param()
             param_types = [self.types[x.typ().getText()] for x in params]
             param_names = [x.ID().getText()              for x in params]
         except AttributeError:
+            # No parameters:
             param_types = []
             param_names = []
 
         func_typ = ir.FunctionType(self.types[ret_typ], param_types)
-        self.new_func(func_typ, ide)
+        self._create_func(func_typ, name)
 
-        self.symbols.push_frame()
-        self.new_block()
+        self._symbols.push_frame()
+        self._create_block()
 
-        for arg, typ, name in zip(self.func.args, param_types, param_names):
+        # Bind parameters inside the function scope:
+        for arg, typ, name in zip(self._func.args, param_types, param_names):
             arg.name = name
-            self.new_var(typ, name, arg)
+            self._create_var(typ, name, arg)
 
         self.visit(ctx.block())
-        self.symbols.pop_frame()
+        self._symbols.pop_frame()
 
-        if not self.builder.block.is_terminated and func_typ == self.types['Void']:
-            self.builder.ret_void()
+        if not self._builder.block.is_terminated and func_typ == self.types['Void']:
+            self._builder.ret_void()
+        # FIXME: handle the cases in which we are returning inside a void function
+        #        or not returning from a non-void function.
 
     def visitBlock(self, ctx):
-        self.symbols.push_frame()
+        # '{' stmt* '}'
+        self._symbols.push_frame()
 
         for child in ctx.children:
             self.visit(child)
 
-        self.symbols.pop_frame()
+        self._symbols.pop_frame()
 
     def visitRet(self, ctx):
+        # 'return' expr?
         try:
-            self.builder.ret(self.visit(ctx.expr()))
+            self._builder.ret(self.visit(ctx.expr()))
         except AttributeError:
-            if self.func.return_value.type == self.types['Void']:
-                self.builder.ret_void()
+            if self._func.return_value.type == self.types['Void']:
+                self._builder.ret_void()
             else:
                 raise Exception("Function must return a value.")
 
     def visitAssign(self, ctx):
-        ide = ctx.ID().getText()
+        # ID '=' expr
+        name = ctx.ID().getText()
         try:
-            ptr = self.symbols.resolve(ide)
-            val = self.visit(ctx.expr())
-            if ptr.type.pointee != val.type:
+            pointer = self._symbols.resolve(name)
+            value = self.visit(ctx.expr())
+            if pointer.type.pointee != value.type:
                 raise Exception("Type mismatch in assignment.")
-            return self.builder.store(val, ptr)
-        except IndexError:
+            return self._builder.store(value, pointer)
+        except KeyError:
             raise Exception("Undeclared identifier in assignment.")
 
     def visitParensExpr(self, ctx):
+        # '(' expr ')'
         return self.visit(ctx.expr())
 
     def visitCallExpr(self, ctx):
-        ide = ctx.ID().getText()
+        # ID '(' exprList? ')'
+        name = ctx.ID().getText()
         try:
-            func = self.symbols.resolve(ide)
+            func = self._symbols.resolve(name)
             if not isinstance(func, ir.Function):
                 raise Exception("Trying to call non-function.")
 
@@ -139,39 +154,44 @@ class CodeGenerator(XVisitor):
             for param, arg in zip(params, func.args):
                 if param.type != arg.type:
                     raise Exception("Wrong type of parameter.")
-            return self.builder.call(func, params)
-        except IndexError:
+            return self._builder.call(func, params)
+        except KeyError:
             raise Exception("Undeclared identifier in expression.")
 
     def visitMinusExpr(self, ctx):
-        return self.builder.neg(self.visit(ctx.expr()))
+        # '-' expr
+        return self._builder.neg(self.visit(ctx.expr()))
 
     def visitMulDivExpr(self, ctx):
+        # expr ('*' | '/') expr
         op = ctx.op.text
         lhs = self.visit(ctx.expr(0))
         rhs = self.visit(ctx.expr(1))
         if op == '*':
-            return self.builder.mul(lhs, rhs)
+            return self._builder.mul(lhs, rhs)
         else:
-            return self.builder.sdiv(lhs, rhs)
+            return self._builder.sdiv(lhs, rhs)
 
     def visitAddSubExpr(self, ctx):
+        # expr ('+' | '-') expr
         op = ctx.op.text
         lhs = self.visit(ctx.expr(0))
         rhs = self.visit(ctx.expr(1))
         if op == '+':
-            return self.builder.add(lhs, rhs)
+            return self._builder.add(lhs, rhs)
         else:
-            return self.builder.sub(lhs, rhs)
+            return self._builder.sub(lhs, rhs)
 
     def visitIdExpr(self, ctx):
-        ide = ctx.ID().getText()
+        # ID
+        name = ctx.ID().getText()
         try:
-            ptr = self.symbols.resolve(ide)
-            return self.builder.load(ptr)
+            pointer = self._symbols.resolve(name)
+            return self._builder.load(pointer)
         except IndexError:
             raise Exception("Undeclared identifier in expression.")
 
     def visitIntExpr(self, ctx):
+        # INT
         integer = ctx.INT().getText()
         return ir.Constant(self.types['Int'], int(integer))
