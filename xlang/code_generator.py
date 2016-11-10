@@ -44,10 +44,14 @@ class CodeGenerator(XVisitor):
         return str(self._module)
 
     def _create_var(self, typ, name, value=None):
-        pointer = self._builder.alloca(typ, name=name)
+        if self._func is None:
+            pointer = ir.GlobalVariable(self._module, typ, name)
+            pointer.initializer = value
+        else:
+            pointer = self._builder.alloca(typ, name=name)
+            if value is not None:
+                self._builder.store(value, pointer)
         self._symbols.bind(name, pointer)
-        if value is not None:
-            self._builder.store(value, pointer)
 
     def _create_func(self, typ, name):
         self._func = ir.Function(self._module, typ, name=name)
@@ -61,9 +65,10 @@ class CodeGenerator(XVisitor):
         # ID ':' typ ('=' expr)?
         typ = ctx.typ().getText()
         name = ctx.ID().getText()
-        self._create_var(self.types[typ], name)
         if ctx.expr():
-            self.visitAssign(ctx)
+            self._create_var(self.types[typ], name, self.visit(ctx.expr()))
+        else:
+            self._create_var(self.types[typ], name)
 
     def visitFuncDecl(self, ctx):
         # ID '(' params? ')' ('->' typ)? block
@@ -96,13 +101,15 @@ class CodeGenerator(XVisitor):
         self.visit(ctx.block())
         self._symbols.pop_frame()
 
+        # FIXME: handle the cases in which we are returning inside a void function
+        #        or not returning from a non-void function.
         if not self._builder.block.is_terminated:
             if func_typ == self.types['Void']:
                 self._builder.ret_void()
             else:
                 self._builder.unreachable()
-        # FIXME: handle the cases in which we are returning inside a void function
-        #        or not returning from a non-void function.
+
+        self._func = None
 
     def visitBlock(self, ctx):
         # '{' stmt* '}'
