@@ -1,10 +1,9 @@
 fibRec(n: Int) -> Int
 {
-    if n < 2 {
+    if (n < 2)
         return n;
-    } else {
-        return fibRec(n - 1) + fibRec(n - 2);
-    }
+
+    return fibRec(n - 1) + fibRec(n - 2);
 }
 
 main() -> Int

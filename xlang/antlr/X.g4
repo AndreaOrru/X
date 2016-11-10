@@ -41,6 +41,10 @@ exprList:
 block:
     '{' stmt* '}' ;
 
+blockOrStmt
+    : block
+    | stmt ;
+
 stmt
     : varDecl
     | ifElse
@@ -50,7 +54,7 @@ stmt
     | expr   ';' ;
 
 ifElse:
-    'if' expr block ('else' block)? ;
+    'if' '(' expr ')' blockOrStmt ('else' blockOrStmt)? ;
 
 assign:
     ID '=' expr ;

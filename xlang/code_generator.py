@@ -114,12 +114,21 @@ class CodeGenerator(XVisitor):
         self._symbols.pop_frame()
 
     def visitIfElse(self, ctx):
-        # 'if' expr block ('else' block)
-        with self._builder.if_else(self.visit(ctx.expr())) as (then, otherwise):
-            with then:
-                self.visit(ctx.block(0))
-            with otherwise:
-                self.visit(ctx.block(1))
+        # 'if' expr blockOrStmt ('else' blockOrStmt)?
+        blocks = ctx.blockOrStmt()
+
+        # No else branch:
+        if len(blocks) == 1:
+            with self._builder.if_then(self.visit(ctx.expr())):
+                self.visit(blocks[0])
+
+        # With else branch:
+        else:
+            with self._builder.if_else(self.visit(ctx.expr())) as (then, otherwise):
+                with then:
+                    self.visit(blocks[0])
+                with otherwise:
+                    self.visit(blocks[1])
 
     def visitRet(self, ctx):
         # 'return' expr?
