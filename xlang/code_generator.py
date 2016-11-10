@@ -96,8 +96,11 @@ class CodeGenerator(XVisitor):
         self.visit(ctx.block())
         self._symbols.pop_frame()
 
-        if not self._builder.block.is_terminated and func_typ == self.types['Void']:
-            self._builder.ret_void()
+        if not self._builder.block.is_terminated:
+            if func_typ == self.types['Void']:
+                self._builder.ret_void()
+            else:
+                self._builder.unreachable()
         # FIXME: handle the cases in which we are returning inside a void function
         #        or not returning from a non-void function.
 
@@ -117,7 +120,6 @@ class CodeGenerator(XVisitor):
                 self.visit(ctx.block(0))
             with otherwise:
                 self.visit(ctx.block(1))
-        self._create_block()
 
     def visitRet(self, ctx):
         # 'return' expr?
