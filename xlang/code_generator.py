@@ -54,7 +54,7 @@ class CodeGenerator(XVisitor):
         self._symbols.bind(name, self._func)
 
     def _create_block(self):
-        block = self._func.append_basic_block(name='.entry')
+        block = self._func.append_basic_block()
         self._builder = ir.IRBuilder(block)
 
     def visitVarDecl(self, ctx):
@@ -109,6 +109,15 @@ class CodeGenerator(XVisitor):
             self.visit(child)
 
         self._symbols.pop_frame()
+
+    def visitIfElse(self, ctx):
+        # 'if' expr block ('else' block)
+        with self._builder.if_else(self.visit(ctx.expr())) as (then, otherwise):
+            with then:
+                self.visit(ctx.block(0))
+            with otherwise:
+                self.visit(ctx.block(1))
+        self._create_block()
 
     def visitRet(self, ctx):
         # 'return' expr?
@@ -169,7 +178,7 @@ class CodeGenerator(XVisitor):
         rhs = self.visit(ctx.expr(1))
         if op == '*':
             return self._builder.mul(lhs, rhs)
-        else:
+        elif op == '/':
             return self._builder.sdiv(lhs, rhs)
 
     def visitAddSubExpr(self, ctx):
@@ -179,8 +188,15 @@ class CodeGenerator(XVisitor):
         rhs = self.visit(ctx.expr(1))
         if op == '+':
             return self._builder.add(lhs, rhs)
-        else:
+        elif op == '-':
             return self._builder.sub(lhs, rhs)
+
+    def visitRelExpr(self, ctx):
+        # expr ('<' | '<= | '==' | '!=' | '>=' | '>') expr
+        op = ctx.op.text
+        lhs = self.visit(ctx.expr(0))
+        rhs = self.visit(ctx.expr(1))
+        return self._builder.icmp_signed(op, lhs, rhs)
 
     def visitIdExpr(self, ctx):
         # ID

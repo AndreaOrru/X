@@ -28,6 +28,7 @@ expr
     | '-' expr                  # MinusExpr
     | expr op=('*' | '/') expr  # MulDivExpr
     | expr op=('+' | '-') expr  # AddSubExpr
+    | expr op=('<' | '<=' | '==' | '!=' | '>=' | '>') expr  # RelExpr
     | ID                        # IdExpr
     | INT                       # IntExpr
     | '(' expr ')'              # ParensExpr
@@ -42,10 +43,14 @@ block:
 
 stmt
     : varDecl
+    | ifElse
     | block
     | assign ';'
     | ret
     | expr   ';' ;
+
+ifElse:
+    'if' expr block ('else' block)? ;
 
 assign:
     ID '=' expr ;
