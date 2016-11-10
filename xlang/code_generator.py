@@ -130,6 +130,22 @@ class CodeGenerator(XVisitor):
                 with otherwise:
                     self.visit(blocks[1])
 
+    def visitWhileLoop(self, ctx):
+        while_cond = self._builder.append_basic_block()
+        while_body = self._builder.append_basic_block()
+        while_end = self._builder.append_basic_block()
+
+        self._builder.branch(while_cond)
+
+        self._builder.position_at_end(while_cond)
+        self._builder.cbranch(self.visit(ctx.expr()), while_body, while_end)
+
+        self._builder.position_at_end(while_body)
+        self.visit(ctx.blockOrStmt())
+        self._builder.branch(while_cond)
+
+        self._builder.position_at_end(while_end)
+
     def visitRet(self, ctx):
         # 'return' expr?
         try:

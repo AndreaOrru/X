@@ -48,6 +48,7 @@ blockOrStmt
 stmt
     : varDecl
     | ifElse
+    | whileLoop
     | block
     | assign ';'
     | ret
@@ -55,6 +56,9 @@ stmt
 
 ifElse:
     'if' '(' expr ')' blockOrStmt ('else' blockOrStmt)? ;
+
+whileLoop:
+    'while' '(' expr ')' blockOrStmt ;
 
 assign:
     ID '=' expr ;
