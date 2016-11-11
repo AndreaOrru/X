@@ -1,0 +1,9 @@
+{
+    "name": "xlang",
+    "authors": [
+        "Andrea Orru"
+    ],
+    "description": "High-level system programming language.",
+    "copyright": "Copyright © 2016, Andrea Orru",
+    "license": "BSD"
+}
