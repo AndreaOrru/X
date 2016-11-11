@@ -14,8 +14,10 @@ varDecl:
 funcDecl:
     ID '(' params? ')' ('->' typ)? block ;
 
-typ:
-    'Int' ;
+typ
+    : 'Int'    # IntType
+    | '&' typ  # PtrType
+    ;
 
 params:
     param (',' param)* ;
@@ -23,13 +25,19 @@ params:
 param:
     ID ':' typ ;
 
+lValue
+    : ID  # IdExpr
+    ;
+
 expr
     : ID '(' exprList? ')'      # CallExpr
     | '-' expr                  # MinusExpr
+    | '&' lValue                # RefExpr
+    | '@' expr                  # DerefExpr
     | expr op=('*' | '/') expr  # MulDivExpr
     | expr op=('+' | '-') expr  # AddSubExpr
     | expr op=('<' | '<=' | '==' | '!=' | '>=' | '>') expr  # RelExpr
-    | ID                        # IdExpr
+    | lValue                    # LValueExpr
     | INT                       # IntExpr
     | '(' expr ')'              # ParensExpr
     | assign                    # AssignExpr

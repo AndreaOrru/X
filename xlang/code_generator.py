@@ -2,6 +2,7 @@
 
 from llvmlite import ir
 
+from xlang.antlr.XParser import XParser
 from xlang.antlr.XVisitor import XVisitor
 
 
@@ -28,11 +29,6 @@ class SymbolTable:
 
 
 class CodeGenerator(XVisitor):
-    types = {
-        'Void': ir.VoidType(),
-        'Int':  ir.IntType(32),
-    }
-
     def __init__(self):
         self._module = ir.Module()
         self._symbols = SymbolTable()
@@ -63,31 +59,31 @@ class CodeGenerator(XVisitor):
 
     def visitVarDecl(self, ctx):
         # ID ':' typ ('=' expr)?
-        typ = ctx.typ().getText()
+        typ = self.visit(ctx.typ())
         name = ctx.ID().getText()
         if ctx.expr():
-            self._create_var(self.types[typ], name, self.visit(ctx.expr()))
+            self._create_var(typ, name, self.visit(ctx.expr()))
         else:
-            self._create_var(self.types[typ], name)
+            self._create_var(typ, name)
 
     def visitFuncDecl(self, ctx):
         # ID '(' params? ')' ('->' typ)? block
         name = ctx.ID().getText()
         try:
-            ret_typ = ctx.typ().getText()
+            ret_typ = self.visit(ctx.typ())
         except AttributeError:
-            ret_typ = 'Void'    # No type specified, assume Void.
+            ret_typ = ir.VoidType()
 
         try:
             params = ctx.params().param()
-            param_types = [self.types[x.typ().getText()] for x in params]
-            param_names = [x.ID().getText()              for x in params]
+            param_types = [self.visit(x.typ()) for x in params]
+            param_names = [x.ID().getText()    for x in params]
         except AttributeError:
             # No parameters:
             param_types = []
             param_names = []
 
-        func_typ = ir.FunctionType(self.types[ret_typ], param_types)
+        func_typ = ir.FunctionType(ret_typ, param_types)
         self._create_func(func_typ, name)
 
         self._symbols.push_frame()
@@ -104,7 +100,7 @@ class CodeGenerator(XVisitor):
         # FIXME: handle the cases in which we are returning inside a void function
         #        or not returning from a non-void function.
         if not self._builder.block.is_terminated:
-            if func_typ == self.types['Void']:
+            if func_typ == ir.VoidType():
                 self._builder.ret_void()
             else:
                 self._builder.unreachable()
@@ -158,7 +154,7 @@ class CodeGenerator(XVisitor):
         try:
             self._builder.ret(self.visit(ctx.expr()))
         except AttributeError:
-            if self._func.return_value.type == self.types['Void']:
+            if self._func.return_value.type == ir.VoidType():
                 self._builder.ret_void()
             else:
                 raise Exception("Function must return a value.")
@@ -205,6 +201,16 @@ class CodeGenerator(XVisitor):
         # '-' expr
         return self._builder.neg(self.visit(ctx.expr()))
 
+    def visitRefExpr(self, ctx):
+        if isinstance(ctx.lValue(), XParser.IdExprContext):
+            name = ctx.lValue().getText()
+            pointer = self._symbols.resolve(name)
+            return pointer
+        # FIXME: handle the other cases.
+
+    def visitDerefExpr(self, ctx):
+        return self._builder.load(self.visit(ctx.expr()))
+
     def visitMulDivExpr(self, ctx):
         # expr ('*' | '/') expr
         op = ctx.op.text
@@ -244,4 +250,10 @@ class CodeGenerator(XVisitor):
     def visitIntExpr(self, ctx):
         # INT
         integer = ctx.INT().getText()
-        return ir.Constant(self.types['Int'], int(integer))
+        return ir.Constant(ir.IntType(32), int(integer))
+
+    def visitIntType(self, ctx):
+        return ir.IntType(32)
+
+    def visitPtrType(self, ctx):
+        return ir.PointerType(self.visit(ctx.typ()))
