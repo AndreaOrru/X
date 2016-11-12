@@ -1,9 +1,26 @@
-.dub
-
-docs.json
-__dummy.html
-
+# Compiled Object files
 *.o
 *.obj
 
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+
+# Executables
+*.exe
 xlang
+
+# DUB
+.dub
+docs.json
+dub.selections.json
+__dummy.html
+docs/
+
+# Code coverage
+*.lst
