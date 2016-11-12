@@ -1,6 +1,12 @@
-import std.stdio: writeln;
+import xlang.compiler;
+import xlang.vm;
+import std.algorithm;
+import std.stdio;
+
 
 void main()
 {
-    writeln("Hello world!");
+    string expression = readln();
+
+    writeln(expression.bytecode.run());
 }
