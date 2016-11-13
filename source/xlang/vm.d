@@ -11,16 +11,11 @@ long run(in long[] bytecode)
     for (int i = 0; i < bytecode.length; i++)
         final switch (bytecode[i])
         {
-            case Op.add: operation!"+"; break;
-            case Op.sub: operation!"-"; break;
-            case Op.mul: operation!"*"; break;
-            case Op.div: operation!"/"; break;
-
-            case Op.neg:
-                stack.back = -stack.back;
-                break;
-
-            case Op.number:
+            case Op.add:      operation!"+"; break;
+            case Op.subtract: operation!"-"; break;
+            case Op.multiply: operation!"*"; break;
+            case Op.divide:   operation!"/"; break;
+            case Op.integer:
                 stack ~= bytecode[++i];
                 break;
         }

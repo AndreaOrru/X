@@ -5,7 +5,7 @@ import pegged.grammar;
 import std.conv;
 
 
-enum Op : long { add, sub, mul, div, neg, number }
+enum Op : long { add, subtract, multiply, divide, integer }
 
 private long[] result;
 
@@ -28,12 +28,13 @@ private void compile(in ParseTree p)
 {
     switch (p.name)
     {
-        case "X.Add":    operation!(Op.add)(p); break;
-        case "X.Sub":    operation!(Op.sub)(p); break;
-        case "X.Mul":    operation!(Op.mul)(p); break;
-        case "X.Div":    operation!(Op.div)(p); break;
-        case "X.Neg":    operation!(Op.neg)(p); break;
-        case "X.Number": number(p); break;
+        case "X.Addition":       operation!(Op.add)(p);      break;
+        case "X.Subtraction":    operation!(Op.subtract)(p); break;
+        case "X.Multiplication": operation!(Op.multiply)(p); break;
+        case "X.Division":       operation!(Op.divide)(p);   break;
+
+        case "X.Integer": integer(p); break;
+
         default:
             compile(p.children);
             break;
@@ -46,8 +47,8 @@ private void operation(Op op)(in ParseTree p)
     result ~= op;
 }
 
-private void number(in ParseTree p)
+private void integer(in ParseTree p)
 {
-    result ~= Op.number;
+    result ~= Op.integer;
     result ~= to!long(p.matches[0]);
 }
