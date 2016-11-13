@@ -6,7 +6,11 @@ import std.stdio;
 
 void main()
 {
-    string expression = readln();
+    writeln(">>> Enter code to evaluate. Press Ctrl+D to finish inserting.");
 
+    string expression;
+    readf("%s", &expression);
+
+    writeln("\n>>> Result of the evaluation:");
     writeln(expression.bytecode.run());
 }

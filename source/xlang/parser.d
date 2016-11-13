@@ -5,8 +5,17 @@ import pegged.grammar;
 
 mixin(grammar(`
 X:
+    Program < Statement*
+
+    Statement <- AssignmentStatement
+               / ReturnStatement
+
+    AssignmentStatement < Identifier '=' Expression ';'
+    ReturnStatement < "return" Expression ';'
+
     Expression <- AdditiveExpression
-    PrimaryExpression < Integer
+    PrimaryExpression < Identifier
+                      / Integer
                       / '(' Expression ')'
 
     MultiplicativeExpression < PrimaryExpression (Multiplication / Division)*
@@ -17,6 +26,7 @@ X:
     Addition    < '+' MultiplicativeExpression
     Subtraction < '-' MultiplicativeExpression
 
-    Integer <~ digits
+    Identifier <~ identifier
+    Integer    <~ digits
 `));
 
