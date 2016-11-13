@@ -1,10 +1,9 @@
 {
     "name": "xlang",
+    "authors": [
+        "Andrea Orru"
+    ],
     "description": "High-level system programming language.",
-    "authors": ["Andrea Orru"],
     "copyright": "Copyright © 2016, Andrea Orru",
-    "license": "BSD 2-clause",
-    "dependencies": {
-        "pegged": "*"
-    }
+    "license": "BSD 2-clause"
 }
