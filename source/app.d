@@ -5,8 +5,8 @@ import std.stdio;
 void main(string[] args)
 {
     // TODO: getopt for serious argument parsing.
-    Lexer lexer = new Lexer(File(args[1]));
+    Lexer lexer = Lexer.fromFile(args[1]);
 
-    foreach (token; lexer.tokenize())
+    foreach (token; lexer.tokens)
         writeln(token);
 }

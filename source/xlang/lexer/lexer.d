@@ -14,9 +14,49 @@ import std.uni;
 class Lexer
 {
     /**
-     * Run the tokenizer on the input.
+     * Constructor from text.
+     *
+     * Params:
+     *     input = the text to tokenize
      */
-    Token[] tokenize()
+    this(string input)
+    {
+        this.input = input;
+        tokenize();
+    }
+
+    /**
+     * Constructor from file.
+     *
+     * Params:
+     *     file = file to tokenize
+     */
+    static Lexer fromFile(string fileName)
+    {
+        string input = readText(fileName);
+        return new Lexer(input);
+    }
+
+    /**
+     * The tokenized input.
+     */
+    const(Token[]) tokens() const @property
+    {
+        return _tokens;
+    }
+
+  private:
+    Token[] _tokens;    /// The list of the tokens.
+    string input;       /// The content of the file.
+    int index = 0;      /// The current position in the file.
+
+    /// The current location (line/column) in the file.
+    Location location = {1, 1};
+
+    /**
+     * Tokenize the input.
+     */
+    void tokenize()
     {
         int c;
         while ((c = peek()) != EOF)
@@ -39,13 +79,10 @@ class Lexer
         }
         // End of file:
         addToken(TokenType.eof, "EOF", location);
-
-        return tokens;
     }
     unittest
     {
         Lexer lexer = new Lexer("\t123\r\n+ 4\n");
-        lexer.tokenize();
 
         assert(lexer.tokens[0] == Token(TokenType.number, "123", Location(1, 2)));
         assert(lexer.tokens[1] == Token(TokenType.plus,   "+",   Location(2, 1)));
@@ -54,45 +91,12 @@ class Lexer
     }
 
     /**
-     * Constructor.
-     *
-     * Close the file after reading the content.
-     *
-     * Params:
-     *     file = file to tokenize
-     */
-    this(File file)
-    {
-        input = readText(file.name);
-        file.close();
-    }
-
-    /**
-     * Constructor.
-     *
-     * Params:
-     *     input = the text to tokenize
-     */
-    this(string input)
-    {
-        this.input = input;
-    }
-
-  private:
-    Token[] tokens;     /// The list of the tokens.
-    string input;       /// The content of the file.
-    int index;          /// The current position in the file.
-
-    /// The current location (line/column) in the file.
-    Location location = {1, 1};
-
-    /**
      * Look ahead at the next character without updating the current location.
      *
      * Returns:
      *     The next character or EOF if all characters have been read.
      */
-    int peek()
+    int peek() const
     {
         if (index < input.length)
             return input[index];
@@ -101,11 +105,13 @@ class Lexer
     }
     unittest
     {
-        Lexer lexer = new Lexer("1");
+        Lexer lexer = new Lexer;
+        lexer.input = "1";
         assert(lexer.peek() == '1');
         assert(lexer.location == Location(1, 1));
 
-        lexer = new Lexer("");
+        lexer = new Lexer;
+        lexer.input = "";
         assert(lexer.peek() == EOF);
     }
 
@@ -133,7 +139,8 @@ class Lexer
     }
     unittest
     {
-        Lexer lexer = new Lexer("1\n");
+        Lexer lexer = new Lexer;
+        lexer.input = "1\n";
 
         assert(lexer.read() == '1');
         assert(lexer.read() == '\n');
@@ -146,11 +153,11 @@ class Lexer
      * Params:
      *     type = type of the token
      *     text = text of the token
-     *     location = location of the token
+     *     location = location of the token in the input
      */
     void addToken(TokenType type, string text, Location location)
     {
-        tokens ~= Token(type, text, location);
+        _tokens ~= Token(type, text, location);
     }
 
     /**
@@ -163,7 +170,7 @@ class Lexer
      */
     void addToken(TokenType type, string text)
     {
-        tokens ~= Token(type, text, this.location);
+        _tokens ~= Token(type, text, this.location);
 
         // Skip over the token and update the location:
         for (int i = 0; i < text.length; i++)
@@ -171,7 +178,7 @@ class Lexer
     }
     unittest
     {
-        Lexer lexer = new Lexer("");
+        Lexer lexer = new Lexer;
         lexer.addToken(TokenType.number, "123");
 
         assert(lexer.tokens.length == 1);
@@ -194,7 +201,7 @@ class Lexer
         string text = "\n123 + 745     +\t\t \r 12";
         Lexer lexer = new Lexer(text);
 
-        assert(lexer.tokenize().length == 6);
+        assert(lexer.tokens.length == 6);
         assert(lexer.location.line == 2);
         assert(lexer.location.column == 1 + text.length - 1);
     }
@@ -220,7 +227,8 @@ class Lexer
     unittest
     {
         string text = "1234567890";
-        Lexer lexer = new Lexer(text);
+        Lexer lexer = new Lexer;
+        lexer.input = text;
         lexer.readNumber();
 
         assert(lexer.tokens[0].type == TokenType.number);
@@ -228,4 +236,9 @@ class Lexer
         assert(lexer.tokens[0].location == Location(1, 1));
         assert(lexer.location.column == 1 + text.length);
     }
+
+    /**
+     * Constructor.
+     */
+    this() {}
 }
