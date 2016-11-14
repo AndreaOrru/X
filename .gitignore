@@ -17,8 +17,9 @@
 
 # DUB
 /.dub
-/docs.json
 /__dummy.html
+/__test__library__
+/docs.json
 /docs/
 
 # Code coverage
