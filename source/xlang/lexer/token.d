@@ -6,9 +6,13 @@ module xlang.lexer.token;
  */
 enum TokenType
 {
-    number,  /// [0-9]+
-    plus,    /// +
-    eof,     /// EOF
+    integer,     /// [0-9]+
+    identifier,  /// [_a-zA-Z][_a-zA-Z0-9]*
+    add,         /// +
+    sub,         /// -
+    mul,         /// *
+    div,         /// /
+    eof,         /// EOF
 };
 
 /**
@@ -43,5 +47,23 @@ struct Token
 
         return format(`Token(type=%s, text="%s", line=%d, column=%d)`,
             type, text, location.line, location.column);
+    }
+
+    /**
+     * The binding power of the token.
+     */
+    int precedence() const @property
+    {
+        switch (type)
+        {
+            case TokenType.mul, TokenType.div:
+                return 2;
+
+            case TokenType.add, TokenType.sub:
+                return 1;
+
+            default:
+                return 0;
+        }
     }
 }

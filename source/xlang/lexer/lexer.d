@@ -1,9 +1,7 @@
 module xlang.lexer.lexer;
 
-import xlang.lexer.token;
-import std.file;
-import std.stdio;
-import std.uni;
+public import xlang.lexer.token;
+import std.stdio : EOF;
 
 
 /**
@@ -11,7 +9,7 @@ import std.uni;
  *
  * Reads a file and splits it into tokens.
  */
-class Lexer
+final class Lexer
 {
     /**
      * Constructor from text.
@@ -33,6 +31,8 @@ class Lexer
      */
     static Lexer fromFile(string fileName)
     {
+        import std.file : readText;
+
         string input = readText(fileName);
         return new Lexer(input);
     }
@@ -67,10 +67,24 @@ class Lexer
                     skipWhitespace(); break;
 
                 case '0': .. case '9':
-                    readNumber(); break;
+                    readInteger(); break;
+
+                case '_':
+                case 'a': .. case 'z':
+                case 'A': .. case 'Z':
+                    readIdentifier(); break;
 
                 case '+':
-                    addToken(TokenType.plus, "+"); break;
+                    addToken(TokenType.add, "+"); break;
+
+                case '-':
+                    addToken(TokenType.sub, "-"); break;
+
+                case '*':
+                    addToken(TokenType.mul, "*"); break;
+
+                case '/':
+                    addToken(TokenType.div, "/"); break;
 
                 default:
                     // TODO: unknown token.
@@ -82,12 +96,16 @@ class Lexer
     }
     unittest
     {
-        Lexer lexer = new Lexer("\t123\r\n+ 4\n");
+        Lexer lexer = new Lexer("\t123\r\n+ 4\n/3*x\n");
 
-        assert(lexer.tokens[0] == Token(TokenType.number, "123", Location(1, 2)));
-        assert(lexer.tokens[1] == Token(TokenType.plus,   "+",   Location(2, 1)));
-        assert(lexer.tokens[2] == Token(TokenType.number, "4",   Location(2, 3)));
-        assert(lexer.tokens[3] == Token(TokenType.eof,    "EOF", Location(3, 1)));
+        assert(lexer.tokens[0] == Token(TokenType.integer,    "123", Location(1, 2)));
+        assert(lexer.tokens[1] == Token(TokenType.add,        "+",   Location(2, 1)));
+        assert(lexer.tokens[2] == Token(TokenType.integer,    "4",   Location(2, 3)));
+        assert(lexer.tokens[3] == Token(TokenType.div,        "/",   Location(3, 1)));
+        assert(lexer.tokens[4] == Token(TokenType.integer,    "3",   Location(3, 2)));
+        assert(lexer.tokens[5] == Token(TokenType.mul,        "*",   Location(3, 3)));
+        assert(lexer.tokens[6] == Token(TokenType.identifier, "x",   Location(3, 4)));
+        assert(lexer.tokens[7] == Token(TokenType.eof,        "EOF", Location(4, 1)));
     }
 
     /**
@@ -179,7 +197,7 @@ class Lexer
     unittest
     {
         Lexer lexer = new Lexer;
-        lexer.addToken(TokenType.number, "123");
+        lexer.addToken(TokenType.integer, "123");
 
         assert(lexer.tokens.length == 1);
         assert(lexer.location.column == 4);
@@ -190,6 +208,8 @@ class Lexer
      */
     void skipWhitespace()
     {
+        import std.uni : isWhite;
+
         do
         {
             read();
@@ -206,34 +226,57 @@ class Lexer
         assert(lexer.location.column == 1 + text.length - 1);
     }
 
-    /**
-     * Read a number.
-     */
-    void readNumber()
+    void readIdentifier()
     {
-        // Save the location at the beginning of the number:
-        Location numberLocation = location;
+        import std.uni : isAlphaNum;
 
-        string number;
+        Location identifierLocation = location;
+        string identifier;
+
+        identifier ~= read();
+        while (isAlphaNum(peek()) || peek() == '_')
+            identifier ~= read();
+
+        addToken(TokenType.identifier, identifier, identifierLocation);
+    }
+    unittest
+    {
+        string[] texts = ["variableName", "_private_Method1"];
+        foreach (text; texts)
+        {
+            Lexer lexer = new Lexer;
+            lexer.input = text;
+            lexer.readIdentifier();
+            assert(lexer.tokens[0] == Token(TokenType.identifier, text, Location(1, 1)));
+        }
+    }
+
+    /**
+     * Read an integer.
+     */
+    void readInteger()
+    {
+        import std.uni : isNumber;
+
+        Location integerLocation = location;
+        string integer;
 
         do
         {
-            number ~= read();
+            integer ~= read();
         }
         while (isNumber(peek()));
 
-        addToken(TokenType.number, number, numberLocation);
+        addToken(TokenType.integer, integer, integerLocation);
     }
     unittest
     {
         string text = "1234567890";
         Lexer lexer = new Lexer;
         lexer.input = text;
-        lexer.readNumber();
+        lexer.readInteger();
 
-        assert(lexer.tokens[0].type == TokenType.number);
-        assert(lexer.tokens[0].text == text);
-        assert(lexer.tokens[0].location == Location(1, 1));
+        assert(lexer.tokens[0] == Token(TokenType.integer, text, Location(1, 1)));
         assert(lexer.location.column == 1 + text.length);
     }
 
